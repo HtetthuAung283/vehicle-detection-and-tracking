@@ -122,10 +122,32 @@ log('info', '--format=' + args.format)
 
 #======================
 #
+# SETTING PARAMETERS FOR USING THE SAME VALUES FOR LEARNING AND CLASSIFYING
+#
+#----------------------
+# in which color space the feature extraction
+color_space = 'LUV'
+# spatial size for color histogram
+spatial_size = (32, 32)
+hist_bins = 32
+# amount orientation bins
+orient = 9
+pix_per_cell = 8
+cell_per_block = 2
+# which color channels to use for hog features 0|1|2|'ALL'
+hog_channel = 'ALL'
+# use spatial features
+spatial_feat = True
+# use histogram color features
+hist_feat = True
+# use hog features
+hog_feat = True
+#======================
+#
 # CREATE A SVM CLASSIFIER WITH TRAINING DATA
 #
 #----------------------
-clf = createClassifier(args.mlDir)
+clf, X_scaler = createClassifier(args.mlDir, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat)
 
 
 #======================
@@ -137,7 +159,7 @@ clf = createClassifier(args.mlDir)
 detection = Detection()
 
 def process_image(img, detection=detection):
-    result, detection = detectVehicles(img, clf, args.outDir, args.visLog, detection, args.format, sobel_kernel=9, mag_sobelxy_thresh=(70, 100), hls_thresh=(120, 255), lab_thresh=(160, 255), luv_thresh=(200, 255))
+    result = detect_vehicles(img, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650])
     return result
 
 
@@ -146,7 +168,7 @@ if args.image:
     
     # read image
     img = mpimg.imread(args.image)
-    result, detection = detectVehicles(img, mtx, dist, args.outDir, args.visLog, leftLine, rightLine, args.format, sobel_kernel=9, mag_sobelxy_thresh=(70, 100), hls_thresh=(120, 255), lab_thresh=(160, 255), luv_thresh=(200, 255))
+    result = detect_vehicles(img, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650])
     
     print(map_int_name[args.visLog])
     writeImage(result, args.outDir, map_int_name[args.visLog], cmap=None)

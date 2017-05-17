@@ -11,6 +11,7 @@ from skimage.feature import hog
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import LinearSVC
+from scipy.ndimage.measurements import label
 
 
 # helper functions
@@ -62,6 +63,186 @@ def writeImage(item, dir, basename, cmap=None):
         fig.savefig(file)
     
     plt.clf()
+
+def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
+    # Make a copy of the image
+    imcopy = np.copy(img)
+    # Iterate through the bounding boxes
+    for bbox in bboxes:
+        # Draw a rectangle given bbox coordinates
+        cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
+    # Return the image copy with boxes drawn
+    return imcopy
+
+def detect_vehicles(img, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[None, None]):
+    
+    # normalize if data is 0-255 range
+    #image = img.astype(np.float32)/255
+    
+    # create a hog image of the full input image
+    # subsampling this hog image saves a lot of time compared to the calculation of the hog of the single search windows
+    whole_hog_image = single_img_features(img, color_space=color_space, 
+                            spatial_size=spatial_size, hist_bins=hist_bins, 
+                            orient=orient, pix_per_cell=pix_per_cell, 
+                            cell_per_block=cell_per_block, 
+                            hog_channel=hog_channel, spatial_feat=spatial_feat, 
+                            hist_feat=hist_feat, hog_feat=hog_feat)
+    
+    windows = []
+    
+    windows_big = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(128, 128), xy_overlap=(0.75, 0.75))
+    windows_big2 = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(90, 90), xy_overlap=(0.75, 0.75))
+    windows_med = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(64, 64), xy_overlap=(0.75, 0.75))
+    windows_med2 = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(50, 50), xy_overlap=(0.75, 0.75))
+#    windows_sma = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(32, 32), xy_overlap=(0.75, 0.75))
+    
+    hot_windows = search_windows(img, windows_big+windows_big2+windows_med+windows_med2, clf, X_scaler, color_space=color_space, 
+                        spatial_size=spatial_size, hist_bins=hist_bins, 
+                        orient=orient, pix_per_cell=pix_per_cell, 
+                        cell_per_block=cell_per_block, 
+                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
+                        hist_feat=hist_feat, hog_feat=hog_feat)
+    
+    # create an empty heatmap
+    heat = np.zeros_like(img[:,:,0]).astype(np.float)
+    
+    # Add heat to each box in box list
+    heat = add_heat(heat, hot_windows)
+    
+    # Apply threshold to help remove false positives
+    heat = apply_threshold(heat, 1)
+
+    # Visualize the heatmap when displaying    
+    heatmap = np.clip(heat, 0, 255)
+
+    # Find final boxes from heatmap using label function
+    labels = label(heatmap)
+    draw_img = np.copy(img)
+
+
+    return draw_labeled_bboxes(draw_img, labels)
+    
+#     draw_img = draw_boxes(draw_img, windows_med2, color=(255, 0, 0), thick=2)
+#     draw_img = draw_boxes(draw_img, windows_med, color=(0, 255, 0), thick=2)
+#     draw_img = draw_boxes(draw_img, windows_big, color=(255, 0, 255), thick=2)
+#     draw_img = draw_boxes(draw_img, hot_windows, color=(255, 255, 255), thick=2)
+#     return draw_img
+
+def add_heat(heatmap, bbox_list):
+    # Iterate through list of bboxes
+    for box in bbox_list:
+        # Add += 1 for all pixels inside each bbox
+        # Assuming each "box" takes the form ((x1, y1), (x2, y2))
+        heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
+
+    # Return updated heatmap
+    return heatmap# Iterate through list of bboxes
+    
+def apply_threshold(heatmap, threshold):
+    # Zero out pixels below the threshold
+    heatmap[heatmap <= threshold] = 0
+    # Return thresholded map
+    return heatmap
+
+def draw_labeled_bboxes(img, labels):
+    font = cv2.FONT_HERSHEY_COMPLEX_SMALL
+
+    # Iterate through all detected cars
+    for car_number in range(1, labels[1]+1):
+        # Find pixels with each car_number label value
+        nonzero = (labels[0] == car_number).nonzero()
+        # Identify x and y values of those pixels
+        nonzeroy = np.array(nonzero[0])
+        nonzerox = np.array(nonzero[1])
+        # Define a bounding box based on min/max x and y
+        bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
+        # Draw the box on the image
+        cv2.rectangle(img, bbox[0], bbox[1], (0, 255, 0), 1)
+        # write text over box
+        cv2.putText(img, 'Car', bbox[0], font, 1, (0, 255, 0), 1)
+    # Return the image
+    return img
+
+# Define a function that takes an image,
+# start and stop positions in both x and y, 
+# window size (x and y dimensions),  
+# and overlap fraction (for both x and y)
+def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None], 
+                    xy_window=(64, 64), xy_overlap=(0.5, 0.5)):
+    # If x and/or y start/stop positions not defined, set to image size
+    if x_start_stop[0] == None:
+        x_start_stop[0] = 0
+    if x_start_stop[1] == None:
+        x_start_stop[1] = img.shape[1]
+    if y_start_stop[0] == None:
+        y_start_stop[0] = 0
+    if y_start_stop[1] == None:
+        y_start_stop[1] = img.shape[0]
+    # Compute the span of the region to be searched    
+    xspan = x_start_stop[1] - x_start_stop[0]
+    yspan = y_start_stop[1] - y_start_stop[0]
+    # Compute the number of pixels per step in x/y
+    nx_pix_per_step = np.int(xy_window[0]*(1 - xy_overlap[0]))
+    ny_pix_per_step = np.int(xy_window[1]*(1 - xy_overlap[1]))
+    # Compute the number of windows in x/y
+    nx_buffer = np.int(xy_window[0]*(xy_overlap[0]))
+    ny_buffer = np.int(xy_window[1]*(xy_overlap[1]))
+    nx_windows = np.int((xspan-nx_buffer)/nx_pix_per_step) 
+    ny_windows = np.int((yspan-ny_buffer)/ny_pix_per_step) 
+    # Initialize a list to append window positions to
+    window_list = []
+    # Loop through finding x and y window positions
+    # Note: you could vectorize this step, but in practice
+    # you'll be considering windows one by one with your
+    # classifier, so looping makes sense
+    for ys in range(ny_windows):
+        for xs in range(nx_windows):
+            # Calculate window position
+            startx = xs*nx_pix_per_step + x_start_stop[0]
+            endx = startx + xy_window[0]
+            starty = ys*ny_pix_per_step + y_start_stop[0]
+            endy = starty + xy_window[1]
+            
+            # Append window position to list
+            window_list.append(((startx, starty), (endx, endy)))
+    # Return the list of windows
+    return window_list
+
+# Define a function you will pass an image 
+# and the list of windows to be searched (output of slide_windows())
+def search_windows(img, windows, clf, X_scaler, color_space='RGB', 
+                    spatial_size=(32, 32), hist_bins=32, 
+                    hist_range=(0, 256), orient=9, 
+                    pix_per_cell=8, cell_per_block=2, 
+                    hog_channel=0, spatial_feat=True, 
+                    hist_feat=True, hog_feat=True):
+
+   #1) Create an empty list to receive positive detection windows
+    on_windows = []
+    #2) Iterate over all windows in the list
+    for window in windows:
+        #3) Extract the test window from original image
+        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))
+        
+        #4) Extract features for that window using single_img_features()
+        features = single_img_features(test_img, color_space=color_space, 
+                            spatial_size=spatial_size, hist_bins=hist_bins, 
+                            orient=orient, pix_per_cell=pix_per_cell, 
+                            cell_per_block=cell_per_block, 
+                            hog_channel=hog_channel, spatial_feat=spatial_feat, 
+                            hist_feat=hist_feat, hog_feat=hog_feat)
+        
+        
+        #5) Scale extracted features to be fed to classifier
+        #test_features = scaler.transform(np.array(features).reshape(1, -1))
+        test_features = X_scaler.transform(features)
+        #6) Predict using your classifier
+        prediction = clf.predict(test_features)
+        #7) If positive (prediction == 1) then save the window
+        if prediction == 1:
+            on_windows.append(window)
+    #8) Return windows for positive detections
+    return on_windows
 
 # Define a function to compute binned color features  
 def bin_spatial(img, size=(32, 32)):
@@ -121,7 +302,14 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
                         spatial_feat=True, hist_feat=True, hog_feat=True):    
     '''
         extract the features from one rgb image (ndarray)
+        img: image in rgb color space
+        img_hog: the whole image as a 3-channel-hog
     '''
+    
+#     print('shape img', img.shape)
+#     print('min img', np.min(img))
+#     print('max img', np.max(img))
+
     
     #1) Define an empty list to receive features
     img_features = []
@@ -155,23 +343,19 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
             for channel in range(feature_image.shape[2]):
                 hog_features.extend(get_hog_features(feature_image[:,:,channel], 
                                     orient, pix_per_cell, cell_per_block, 
-                                    vis=False, feature_vec=True))      
+                                    vis=False, feature_vec=True))
         else:
             hog_features = get_hog_features(feature_image[:,:,hog_channel], orient, 
                         pix_per_cell, cell_per_block, vis=False, feature_vec=True)
+        
+
         #8) Append features to list
+        #print('hog_features shape', hog_features.shape)
         img_features.append(hog_features)
 
     #9) Return concatenated array of features
     return np.concatenate(img_features)
 
-    if format == 'collage4':
-        return genCollage(4, imageBank), leftLine, rightLine
-    elif format == 'collage9':
-        return genCollage(9, imageBank), leftLine, rightLine
-    
-    
-    return resultImage, leftLine, rightLine
 
 def genCollage(amount, imageBank):
     '''
@@ -200,6 +384,15 @@ def genCollage(amount, imageBank):
 # Define a function to return HOG features and visualization
 def get_hog_features(img, orient, pix_per_cell, cell_per_block, 
                         vis=False, feature_vec=True):
+    '''
+        calculates and returns hog features of an image
+        img: 1-color-channel image
+        orient: amount of orientation bins
+        pix_per_cell: width/height of a cell in pixels
+        cell_per_block: amount of cells per block
+        vis: True if a visualization should also be returned
+        feature_vec: True if the hog feature should be returned as a 1D vector
+    '''
     # Call with two outputs if vis==True
     if vis == True:
         features, hog_image = hog(img, orientations=orient, 
@@ -219,7 +412,7 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block,
 
 
 
-def createClassifier(mlDir):
+def createClassifier(mlDir, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat):
     '''
         function to create a trained classifier of vehicles in images
         
@@ -243,13 +436,31 @@ def createClassifier(mlDir):
     ###############################
     # classifier save file
     classifierPkl = mlDir + '/.classifier.pkl'
+    allPreTrainDataSets = []
     
     # if one exists, then the classifier can be loaded from there instead of running the whole new training process
     if os.path.isfile(classifierPkl):
-        log('info', 'precalculated classifier file found - loading that: ' + classifierPkl)
-        clf = pickle.load(open(classifierPkl, "rb"))
-        return clf
-    
+        log('info', 'some precalculated classifiers found - loading that: ' + classifierPkl)
+        allPreTrainDataSets = pickle.load(open(classifierPkl, "rb"))
+        
+        for preDataSet in allPreTrainDataSets:
+            if preDataSet['color_space'] == color_space:
+                if preDataSet['spatial_size'] == spatial_size:
+                    if preDataSet['hist_bins'] == hist_bins:
+                        if preDataSet['orient'] == orient:
+                            if preDataSet['pix_per_cell'] == pix_per_cell:
+                                if preDataSet['cell_per_block'] == cell_per_block:
+                                    if preDataSet['hog_channel'] == hog_channel:
+                                        if preDataSet['spatial_feat'] == spatial_feat:
+                                            if preDataSet['hist_feat'] == hist_feat:
+                                                if preDataSet['hog_feat'] == hog_feat:
+                                                    log('info', 'classifier with exact the same parameters found')
+                                                    log('info', str(preDataSet))
+
+                                                    return preDataSet['clf'], preDataSet['X_scaler']
+        
+        log('info', 'no precalculated classifier - loading that: ' + classifierPkl)
+
     ###############################
     #
     # STEP 2: DETERMINING ALL FILEPATHS OF VEHICLE- AND NON-VEHICLE IMAGES
@@ -257,7 +468,7 @@ def createClassifier(mlDir):
     ###############################
     imagesVehicles = getAllFilesFromDirTree(mlDir + '/vehicles')
     imagesNonVehicles = getAllFilesFromDirTree(mlDir + '/non-vehicles')
-    log('info', 'determining paths for learning images. ' + str(len(imagesVehicles) + len(imagesNonVehicles)) + ' files found.')
+    log('info', 'determining paths for training/testing images. ' + str(len(imagesVehicles) + len(imagesNonVehicles)) + ' files found.')
     
     ###############################
     #
@@ -266,19 +477,17 @@ def createClassifier(mlDir):
     ###############################
     log('info', 'reading ' + str(len(imagesVehicles)) + ' images of vehicles and converting them into feature vectors.')
 
-    featureVectorsVehicles = extract_features(imagesVehicles, color_space='LUV', spatial_size=(32, 32),
-                                            hist_bins=32, orient=9,
-                                            pix_per_cell=8, cell_per_block=2, hog_channel='ALL',
-                                            spatial_feat=False, hist_feat=False, hog_feat=True)
+    featureVectorsVehicles = extract_features(imagesVehicles, color_space=color_space, spatial_size=spatial_size,
+                                            hist_bins=hist_bins, orient=orient,
+                                            pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, hog_channel=hog_channel,
+                                            spatial_feat=spatial_feat, hist_feat=hist_feat, hog_feat=hog_feat)
     
     log('info', 'reading ' + str(len(imagesNonVehicles)) + ' images of non-vehicles and converting them into feature vectors.')
 
-    featureVectorsNonVehicles = extract_features(imagesNonVehicles, color_space='LUV', spatial_size=(32, 32),
-                                            hist_bins=32, orient=9,
-                                            pix_per_cell=8, cell_per_block=2, hog_channel='ALL',
-                                            spatial_feat=False, hist_feat=False, hog_feat=True)
-    
-    
+    featureVectorsNonVehicles = extract_features(imagesNonVehicles, color_space=color_space, spatial_size=spatial_size,
+                                            hist_bins=hist_bins, orient=orient,
+                                            pix_per_cell=pix_per_cell, cell_per_block=cell_per_block, hog_channel=hog_channel,
+                                            spatial_feat=spatial_feat, hist_feat=hist_feat, hog_feat=hog_feat)
 
     X = np.vstack((featureVectorsVehicles, featureVectorsNonVehicles)).astype(np.float64)                        
     # Fit a per-column scaler
@@ -322,19 +531,41 @@ def createClassifier(mlDir):
     # Check the prediction time for a single sample
     t=time()
 
+    ###############################
+    #
+    # STEP 6: ADD DATASET TO THE PRECALCULATED AND WRITE TO DISK
+    #
+    ###############################
 
+    myDataSet = {'color_space': color_space,
+                 'spatial_size': spatial_size,
+                 'hist_bins': hist_bins,
+                 'orient': orient,
+                 'pix_per_cell': pix_per_cell,
+                 'cell_per_block': cell_per_block,
+                 'hog_channel': hog_channel,
+                 'spatial_feat': spatial_feat,
+                 'hist_feat': hist_feat,
+                 'hog_feat': hog_feat,
+                 'clf': clf,
+                 'X_scaler': X_scaler
+                 }
+
+    allPreTrainDataSets.append(myDataSet)
+    
 
     # write calibration as file pkl to avoid next time calculation
     log('info', "writing trained classifier to disk " + classifierPkl)
-    pickle.dump( clf, open(classifierPkl, "wb") )
-
+    pickle.dump( allPreTrainDataSets, open(classifierPkl, "wb") )
 
     # return
-    return clf
+    return clf, X_scaler
 
 def getAllFilesFromDirTree(dir):
     '''
         returns all absolute file paths from a directory tree
+        dir: root directory
+        return: list of all files in directory tree
     '''
 
     files = []

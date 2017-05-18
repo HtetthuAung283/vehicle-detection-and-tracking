@@ -74,59 +74,135 @@ def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
     # Return the image copy with boxes drawn
     return imcopy
 
-def detect_vehicles(img, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[None, None]):
+def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[None, None], subsampling=False, retNr=False, format='normal'):
     
-    # normalize if data is 0-255 range
-    #image = img.astype(np.float32)/255
+        # store for the intermediate steps of the processing pipeline
+    imageBank = {}
+    imageBank[0] = img
+
+    if retNr is 0:
+        return img, detection
     
-    # create a hog image of the full input image
-    # subsampling this hog image saves a lot of time compared to the calculation of the hog of the single search windows
-    whole_hog_image = single_img_features(img, color_space=color_space, 
+    # overlap_cells_per_step
+    # the cells are made from 8 pixels,
+    # the step from one window to another is measured in cells (or in overlay)
+    overlap_to_cells_per_step = {0.825: 1,
+                                 0.75: 2,
+                                 0.625: 3,
+                                 0.5: 4,
+                                 0.375: 5,
+                                 0.25: 6,
+                                 0.125: 7,
+                                 0: 9
+                                 }
+    
+    overlap = 0.75
+    
+    # calculate every window anew
+    if subsampling == False:
+        windows_big = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(110, 110), xy_overlap=(0.75, 0.75))
+        windows_big2 = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(90, 90), xy_overlap=(0.75, 0.75))
+        windows_med = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(64, 64), xy_overlap=(0.75, 0.75))
+        windows_med2 = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(50, 50), xy_overlap=(0.75, 0.75))
+#        windows_sma = slide_window(img, x_start_stop=x_start_stop, y_start_stop=(y_start_stop[0], y_start_stop[0] + (y_start_stop[1] - y_start_stop[0]) / 2), xy_window=(32, 32), xy_overlap=(0.5, 0.5))
+        
+        hot_windows = search_windows(img, windows_med+windows_big2+windows_big, clf, X_scaler, color_space=color_space, 
                             spatial_size=spatial_size, hist_bins=hist_bins, 
                             orient=orient, pix_per_cell=pix_per_cell, 
                             cell_per_block=cell_per_block, 
                             hog_channel=hog_channel, spatial_feat=spatial_feat, 
                             hist_feat=hist_feat, hog_feat=hog_feat)
     
-    windows = []
+    # use subsampling to speed up the calculation
+    # subsampling does not work
+    else:
+        scale =1
+        windowsize = [64]
+        hot_windows = find_cars(img, windowsize[0], color_space, y_start_stop[0], y_start_stop[1], overlap_to_cells_per_step[0.75], scale, clf, X_scaler, hog_channel, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
     
-    windows_big = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(128, 128), xy_overlap=(0.75, 0.75))
-    windows_big2 = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(90, 90), xy_overlap=(0.75, 0.75))
-    windows_med = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(64, 64), xy_overlap=(0.75, 0.75))
-    windows_med2 = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(50, 50), xy_overlap=(0.75, 0.75))
-#    windows_sma = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(32, 32), xy_overlap=(0.75, 0.75))
-    
-    hot_windows = search_windows(img, windows_big+windows_big2+windows_med+windows_med2, clf, X_scaler, color_space=color_space, 
-                        spatial_size=spatial_size, hist_bins=hist_bins, 
-                        orient=orient, pix_per_cell=pix_per_cell, 
-                        cell_per_block=cell_per_block, 
-                        hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                        hist_feat=hist_feat, hog_feat=hog_feat)
-    
+    tmp_img = np.copy(img)
+#    tmp_img = draw_boxes(tmp_img, windows_med2, color=(255, 0, 0), thick=2)
+    tmp_img = draw_boxes(tmp_img, hot_windows, color=(0, 255, 0), thick=2)
+#    tmp_img = draw_boxes(tmp_img, windows_big, color=(255, 0, 255), thick=2)
+#    tmp_img = draw_boxes(tmp_img, hot_windows, color=(255, 255, 255), thick=2)
+
+    imageBank[1] = tmp_img
+    if retNr is 1:
+        return tmp_img, detection
+
     # create an empty heatmap
     heat = np.zeros_like(img[:,:,0]).astype(np.float)
     
     # Add heat to each box in box list
     heat = add_heat(heat, hot_windows)
-    
-    # Apply threshold to help remove false positives
-    heat = apply_threshold(heat, 1)
-
-    # Visualize the heatmap when displaying    
     heatmap = np.clip(heat, 0, 255)
 
+
+    # Visualize the heatmap when displaying    
+    heatmap = np.clip(heatmap, 0, 255)
+
+    heatmap = heatmap * (255 / np.max(heatmap))
+    heatmap = heatmap.astype(int)
+    heatmap_as_rgb = np.zeros_like(img)
+    heatmap_as_rgb[:,:,0] = heatmap
+    heatmap_as_rgb[:,:,1] = heatmap
+    heatmap_as_rgb[:,:,2] = heatmap
+    
+    imageBank[2] = heatmap_as_rgb
+    if retNr is 2:
+        return heatmap_as_rgb, detection
+
+    # Apply threshold to help remove false positives
+    t_heat = apply_threshold(heat, 1)
+
     # Find final boxes from heatmap using label function
-    labels = label(heatmap)
+    labels = label(t_heat)
+    labels_img = np.copy(labels[0])
+    labels_img = labels_img * (255 / np.max(labels_img))
+    labels_img = labels_img.astype(int)
+    labels_img_as_rgb = np.zeros_like(img)
+    labels_img_as_rgb[:,:,0] = labels_img
+    labels_img_as_rgb[:,:,1] = labels_img
+    labels_img_as_rgb[:,:,2] = labels_img
+    
+    imageBank[3] = labels_img_as_rgb
+    if retNr is 3:
+        return labels_img_as_rgb, detection
+    
+
+    
+    
     draw_img = np.copy(img)
 
+    result = draw_labeled_bboxes(draw_img, labels)
+    imageBank[4] = result
 
-    return draw_labeled_bboxes(draw_img, labels)
+    if format == 'collage4':
+        return genCollage(4, imageBank), detection
+    
+    return result, detection
     
 #     draw_img = draw_boxes(draw_img, windows_med2, color=(255, 0, 0), thick=2)
 #     draw_img = draw_boxes(draw_img, windows_med, color=(0, 255, 0), thick=2)
 #     draw_img = draw_boxes(draw_img, windows_big, color=(255, 0, 255), thick=2)
 #     draw_img = draw_boxes(draw_img, hot_windows, color=(255, 255, 255), thick=2)
 #     return draw_img
+
+def genCollage(amount, imageBank):
+    '''
+        generating a 2x2 or 3x3 collage
+        amount: 4 -> 2x2 collage; 9 _> 3x3 collage
+        return: imageCollage
+    '''
+    resultImage = None
+    
+    if amount == 4:
+        row1 = cv2.hconcat((imageBank[1], imageBank[2]))
+        row2 = cv2.hconcat((imageBank[3], imageBank[4]))
+        resultImage = cv2.vconcat((row1, row2))
+        resultImage = cv2.resize(resultImage, (1920, int((1920/resultImage.shape[1]) * resultImage.shape[0])))
+    
+    return resultImage
 
 def add_heat(heatmap, bbox_list):
     # Iterate through list of bboxes
@@ -162,6 +238,110 @@ def draw_labeled_bboxes(img, labels):
         cv2.putText(img, 'Car', bbox[0], font, 1, (0, 255, 0), 1)
     # Return the image
     return img
+
+# Define a single function that can extract features using hog sub-sampling and make predictions
+def find_cars(img, window, color_space, ystart, ystop, cells_per_step, scale, svc, X_scaler, hog_channel, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
+    
+    draw_img = np.copy(img)
+#    img = img.astype(np.float32)/255
+    
+    img_tosearch = img[ystart:ystop,:,:]
+    
+    # convert to desired color space
+    if color_space != 'RGB':
+        if color_space == 'HSV':
+            ctrans_tosearch = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        elif color_space == 'LUV':
+            ctrans_tosearch = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+        elif color_space == 'HLS':
+            ctrans_tosearch = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        elif color_space == 'YUV':
+            ctrans_tosearch = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+        elif color_space == 'YCrCb':
+            ctrans_tosearch = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    else: ctrans_tosearch = np.copy(img)      
+
+    # scale?
+    if scale != 1:
+        imshape = ctrans_tosearch.shape
+        ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
+    
+    # deparate channels
+    ch1 = ctrans_tosearch[:,:,0]
+    ch2 = ctrans_tosearch[:,:,1]
+    ch3 = ctrans_tosearch[:,:,2]
+
+    
+    # Define blocks and steps as above
+    nxblocks = (ch1.shape[1] // pix_per_cell) - cell_per_block + 1
+    nyblocks = (ch1.shape[0] // pix_per_cell) - cell_per_block + 1 
+    nfeat_per_block = orient*cell_per_block**2
+    
+    # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
+    #window = 64
+    nblocks_per_window = (window // pix_per_cell) - cell_per_block + 1
+    #cells_per_step = 2  # Instead of overlap, define how many cells to step
+    nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
+    nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+    
+    # Compute individual channel HOG features for the entire image
+    hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+
+    
+    hot_windows = []
+    
+    for xb in range(nxsteps):
+        for yb in range(nysteps):
+            ypos = yb*cells_per_step
+            xpos = xb*cells_per_step
+
+            if hog_channel == 0:
+                hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
+                hog_features = hog_feat1
+            elif hog_channel == 'ALL':
+            # Extract HOG for this patch
+                hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+
+
+            xleft = xpos*pix_per_cell
+            ytop = ypos*pix_per_cell
+
+            # Extract the image patch
+            subimg = cv2.resize(ctrans_tosearch[ytop:ytop+window, xleft:xleft+window], (64,64))
+          
+            # Get color features
+            spatial_features = bin_spatial(subimg, size=spatial_size)
+            hist_features = color_hist(subimg, nbins=hist_bins)
+
+            # Scale features and make a prediction
+            test_features = X_scaler.transform(np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))    
+            #test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))    
+            test_prediction = svc.predict(test_features)
+            
+            if test_prediction == 1:
+                hot_windows.append( ( ( xpos, ypos ), ( xpos + nblocks_per_window, ypos + nblocks_per_window) ) )
+                
+#             if test_prediction == 1:
+#                 xbox_left = np.int(xleft*scale)
+#                 ytop_draw = np.int(ytop*scale)
+#                 win_draw = np.int(window*scale)
+#                 cv2.rectangle(draw_img,(xbox_left, ytop_draw+ystart),(xbox_left+win_draw,ytop_draw+win_draw+ystart),(0,0,255),6) 
+                
+#     return draw_img
+    return hot_windows
+
+def convert_color(img, conv='RGB2YCrCb'):
+    if conv == 'RGB2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    if conv == 'BGR2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    if conv == 'RGB2LUV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
 
 # Define a function that takes an image,
 # start and stop positions in both x and y, 
@@ -357,30 +537,6 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
     return np.concatenate(img_features)
 
 
-def genCollage(amount, imageBank):
-    '''
-        generating a 2x2 or 3x3 collage
-        amount: 4 -> 2x2 collage; 9 _> 3x3 collage
-        return: imageCollage
-    '''
-    resultImage = None
-    
-
-    if amount == 4:
-        row1 = cv2.hconcat((imageBank[1], imageBank[5]))
-        row2 = cv2.hconcat((imageBank[10], imageBank[12]))
-        resultImage = cv2.vconcat((row1, row2))
-        resultImage = cv2.resize(resultImage, (1920, int((1920/resultImage.shape[1]) * resultImage.shape[0])))
-    
-    elif amount == 9:
-        row1 = cv2.hconcat((imageBank[1], imageBank[2], imageBank[4]))
-        row2 = cv2.hconcat((imageBank[5], imageBank[6], imageBank[8]))
-        row3 = cv2.hconcat((imageBank[9], imageBank[10], imageBank[12]))
-        resultImage = cv2.vconcat((row1, row2, row3))
-        resultImage = cv2.resize(resultImage, (1920, int((1920/resultImage.shape[1]) * resultImage.shape[0])))
-    
-    return resultImage
-
 # Define a function to return HOG features and visualization
 def get_hog_features(img, orient, pix_per_cell, cell_per_block, 
                         vis=False, feature_vec=True):
@@ -457,7 +613,8 @@ def createClassifier(mlDir, color_space, spatial_size, hist_bins, orient, pix_pe
                                                     log('info', 'classifier with exact the same parameters found')
                                                     log('info', str(preDataSet))
 
-                                                    return preDataSet['clf'], preDataSet['X_scaler']
+                                                    return preDataSet
+                                                    #return preDataSet['clf'], preDataSet['X_scaler']
         
         log('info', 'no precalculated classifier - loading that: ' + classifierPkl)
 

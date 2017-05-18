@@ -42,20 +42,14 @@ parser.add_argument('--startTime', metavar='INT', type=int, required=False,
                    help='when developing the image pipeline it can be helpful to focus on the difficult parts of an video. Use this argument to shift the entry point. Eg. --startTime=25 starts the processing pipeline at the 25th second after video begin.')
 parser.add_argument('--endTime', metavar='INT', type=int, required=False,
                    help='Use this argument to shift the exit point. Eg. --endTime=30 ends the processing pipeline at the 30th second after video begin.')
+parser.add_argument('--unroll', action='store_true',
+                   help='Use this argument to unroll the resulting video in single frames.')
 parser.add_argument('--visLog', metavar='INT', type=int, action='store', default=False,
                    help='for debugging or documentation of the pipeline you can output the image at a certain processing step \
-                   1=undistorted image \
-                   2=grayscale \
-                   3=binary mask b of lab \
-                   4=binary mask l of luv \
-                   5=combination of binary masks \
-                   6=unwarped binary with polygon \
-                   7=warped binary with polygon \
-                   8=warped binary \
-                   9=histogram \
-                   10=detected lines \
-                   11=undistorted with detected lines \
-                   12=result with text'
+                   1=detections, \
+                   2=heatmap, \
+                   3=thresholded_heatmap \
+                   4=result'
                    )
 parser.add_argument('--format', metavar='STRING', type=str, action='store', default='normal',
                    help='to visualize several steps of the image pipeline and plot them in one single image. use --format=collage4 for a 4-image-collage')
@@ -68,9 +62,10 @@ args = parser.parse_args()
 
 map_int_name = {    
                     0: '00_original',
-                    2: '01_hog',
-                    3: '02_color_hist',
-                    4: '03_heatmap',
+                    1: '01_detections',
+                    2: '02_heatmap',
+                    3: '03_thresh_heatmap', 
+                    4: '99_result',
                     False: '99_result',
                 }
 
@@ -147,7 +142,7 @@ hog_feat = True
 # CREATE A SVM CLASSIFIER WITH TRAINING DATA
 #
 #----------------------
-clf, X_scaler = createClassifier(args.mlDir, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat)
+dict_classifier = createClassifier(args.mlDir, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat)
 
 
 #======================
@@ -157,9 +152,16 @@ clf, X_scaler = createClassifier(args.mlDir, color_space, spatial_size, hist_bin
 #----------------------
 
 detection = Detection()
+frameNr = 1
 
 def process_image(img, detection=detection):
-    result = detect_vehicles(img, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650])
+    result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], retNr=args.visLog, format=args.format)
+    
+    if args.unroll:
+        global frameNr
+        writeImage(result, args.outDir, 'frame_'+str(frameNr))
+        frameNr += 1
+    
     return result
 
 
@@ -168,7 +170,7 @@ if args.image:
     
     # read image
     img = mpimg.imread(args.image)
-    result = detect_vehicles(img, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650])
+    result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], subsampling=False, retNr=args.visLog, format=args.format)
     
     print(map_int_name[args.visLog])
     writeImage(result, args.outDir, map_int_name[args.visLog], cmap=None)
@@ -176,6 +178,10 @@ if args.image:
 if args.video:
     video_output = args.outDir + '/video_out.mp4'
     clip = VideoFileClip(args.video, audio=False)
+
+    if not os.path.isdir(args.outDir):
+        log('info', 'creating output directory: ' + args.outDir)
+        os.mkdir(args.outDir)
 
     subclip = None
     if args.startTime and args.endTime:
@@ -197,9 +203,6 @@ if args.video:
 
     white_clip = subclip.fl_image(process_image) #NOTE: this function expects color images!!
     
-    if not os.path.isdir(args.outDir):
-        log('info', 'creating output directory: ' + args.outDir)
-        os.mkdir(args.outDir)
 
     white_clip.write_videofile(video_output, audio=False)
     

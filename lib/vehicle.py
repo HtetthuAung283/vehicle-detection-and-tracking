@@ -96,10 +96,10 @@ class Vehicle():
         return nextPosition
 
     def getBoundingBox(self):
-        x1 = int(self.position.x - ((self.position.w + self.history_positions[-1].w + self.history_positions[-2].w) / 3) / 2)
-        y1 = int(self.position.y - ((self.position.h + self.history_positions[-1].h + self.history_positions[-2].h) / 3) / 2)
-        x2 = int(self.position.x + ((self.position.w + self.history_positions[-1].w + self.history_positions[-2].w) / 3) / 2)
-        y2 = int(self.position.y + ((self.position.h + self.history_positions[-1].h + self.history_positions[-2].h) / 3) / 2)
+        x1 = int(self.position.x - (self.position.w / 2))
+        y1 = int(self.position.y - (self.position.h / 2))
+        x2 = int(self.position.x + (self.position.w / 2))
+        y2 = int(self.position.y + (self.position.h / 2))
     
         return ( (x1, y1) , (x2, y2) )
     

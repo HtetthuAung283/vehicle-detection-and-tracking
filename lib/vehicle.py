@@ -6,7 +6,7 @@ class Vehicle():
     def __init__(self, position):
 
         # search radius between anticipated center and detected position
-        self.radius = 20
+        self.radius = 25
         
         # the current position of the vehicle
         self.position = position

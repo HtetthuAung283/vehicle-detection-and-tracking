@@ -161,7 +161,7 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
         return heatmap_as_rgb, detection
 
     # Apply threshold to help remove false positives
-    t_heat = apply_threshold(heat, 2)
+    t_heat = apply_threshold(heat, 1)
 
     # Find final boxes from heatmap using label function
     labels = label(t_heat)

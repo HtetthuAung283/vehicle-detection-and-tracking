@@ -121,7 +121,7 @@ log('info', '--format=' + args.format)
 #
 #----------------------
 # in which color space the feature extraction
-color_space = 'LUV'
+color_space = 'YCrCb'
 # spatial size for color histogram
 spatial_size = (32, 32)
 hist_bins = 32

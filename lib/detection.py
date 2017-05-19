@@ -18,8 +18,8 @@ class Detection():
         # vehicles, that are detected and traced over n frames with no fail
         self.vehicles = []
 
-        # left upper corner of false positives
-        self.false = []
+        # images of false positives
+        self.falseImg = []
 
     def confirmExistentVehicles(self):
         

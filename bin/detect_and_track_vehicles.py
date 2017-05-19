@@ -167,7 +167,7 @@ def process_image(img, detection=detection):
     if args.collect:
         print('COLLECT')
         winNr = 1
-        for falseImg in detection.false:
+        for falseImg in detection.falseImg:
             
             writeImage(falseImg, args.outDir, 'falsepositive_'+str(frameNr)+'_'+str(winNr))
             

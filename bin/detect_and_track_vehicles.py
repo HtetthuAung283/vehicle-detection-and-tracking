@@ -165,17 +165,13 @@ def process_image(img, detection=detection):
         writeImage(result, args.outDir, 'frame_'+str(frameNr))
     
     if args.collect:
-        posNr = 1
-        for falsePosition in detection.false:
-            x1 = falsePosition.x - falsePosition.w/2
-            y1 = falsePosition.y - falsePosition.h/2
-            x2 = x1 + 64
-            y2 = y1 + 64
-            crop_img = img[y1:y2, x1:x2]
+        print('COLLECT')
+        winNr = 1
+        for falseImg in detection.false:
             
-            writeImage(crop_img, args.outDir, 'falsepositive_'+str(frameNr)+'_'+str(posNr))
+            writeImage(falseImg, args.outDir, 'falsepositive_'+str(frameNr)+'_'+str(winNr))
             
-            posNr += 1
+            winNr += 1
     
         detection.false = []
     

@@ -122,6 +122,12 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
         windowsize = [64]
         hot_windows = find_cars(img, windowsize[0], color_space, y_start_stop[0], y_start_stop[1], overlap_to_cells_per_step[0.75], scale, clf, X_scaler, hog_channel, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
     
+    # collect false posives for improved learning in later runs
+    for window in hot_windows:
+        if window[0][0] < 600:
+            crop_img = img[window[0][1]:window[1][1], window[0][0]:window[1][0]]
+            detection.falseImg.append( cv2.resize(crop_img, (64, 64) ) )
+    
     tmp_img = np.copy(img)
 #    tmp_img = draw_boxes(tmp_img, windows_med2, color=(255, 0, 0), thick=2)
     tmp_img = draw_boxes(tmp_img, hot_windows, color=(0, 255, 0), thick=2)

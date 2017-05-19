@@ -38,10 +38,10 @@ parser.add_argument('--image', metavar='PATH', type=str, required=False,
                    help='image from a front facing camera. to detect lane lines')
 parser.add_argument('--video', metavar='PATH', type=str, required=False,
                    help='video from a front facing camera. to detect lane lines')
-parser.add_argument('--startTime', metavar='INT', type=int, required=False,
-                   help='when developing the image pipeline it can be helpful to focus on the difficult parts of an video. Use this argument to shift the entry point. Eg. --startTime=25 starts the processing pipeline at the 25th second after video begin.')
-parser.add_argument('--endTime', metavar='INT', type=int, required=False,
-                   help='Use this argument to shift the exit point. Eg. --endTime=30 ends the processing pipeline at the 30th second after video begin.')
+parser.add_argument('--startTime', metavar='FLOAT', type=float, required=False,
+                   help='when developing the image pipeline it can be helpful to focus on the difficult parts of an video. Use this argument to shift the entry point. Eg. --startTime=0.25 starts the processing pipeline at the 25th second after video begin.')
+parser.add_argument('--endTime', metavar='FLOAT', type=float, required=False,
+                   help='Use this argument to shift the exit point. Eg. --endTime=130 ends the processing pipeline at the 30th second of the second minute after video begin.')
 parser.add_argument('--unroll', action='store_true',
                    help='Use this argument to unroll the resulting video in single frames.')
 parser.add_argument('--visLog', metavar='INT', type=int, action='store', default=False,

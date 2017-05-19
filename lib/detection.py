@@ -1,91 +1,93 @@
-from collections import deque
 import numpy as np
+from vehicle import Vehicle
 
 # a class for tracking the detected objects
 class Detection():
     def __init__(self):
-        # n
-        self.n = 5
-        # was the line detected in the last iteration?
-        self.detected = False  
+        
+        # a vehicle should be plausible in n consecutive frames, to be accepted as a vehicle
+        self.n = 3
+        
+        # all the positions of last frame
+        self.positions = []
+        
+        # every item of this list contains the detected points of a single frame
+        # the detected points are a list itself
+        self.history_positions = []
 
-        # x value of the lowest line position
-        self.x = None
-        #average x values of the fitted line over the last n iterations
-        self.bestx = None     
-        # x values of the last n fits of the line
-        self.recent_xfitted = deque([]) 
-        #the lower edge line x values of all frames
-        self.xhistory = deque([])
+        # vehicles, that are detected and traced over n frames with no fail
+        self.vehicles = []
 
-        #polynomial coefficients averaged over the last n iterations
-        self.best_poly_coeff = None  
-        #polynomial coefficients for the most recent fit
-        self.current_poly_coeff = None 
-        #polynomial coefficients of the last n fits
-        self.recent_poly_coeff = []
 
-        #radius of curvature of the line in some units
-        self.radius_of_curvature = None 
-        #distance in meters of vehicle center from the line
-        self.line_base_pos = None 
-        #difference in fit coefficients between last and new fits
-        self.diffs = np.array([0,0,0], dtype='float') 
-        #x values for detected line pixels
-        self.allx = None  
-        #y values for detected line pixels
-        self.ally = None
+    def confirmExistentVehicles(self):
+        
+        confirmedVehicles = []
+        
+        for vehicle in self.vehicles:
+            vehicleConfirmed, self.positions = vehicle.confirmVehicle(self.positions)
+            
+            # if existent vehicle has been confirmed
+            if vehicleConfirmed:
+                confirmedVehicles.append(vehicle)
+
+        self.vehicles = confirmedVehicles
+
+
+    def detectNewVehicles(self):
+        '''
+            use the history of uinassigned positions to detect a new vehicle
+        '''
+        if len(self.history_positions) < 2:
+            return
+        
+        maybe_history_positions_minus_2 = []
+        
+        # start with all non-assigned positions 2 frames ago
+        for position_old2 in self.history_positions[-2]:
+            maybeVehicle = Vehicle(position_old2)
+            
+            maybeVehicleConfirmed2 = False
+            
+            # try to confirm this vehicle in 1 frames ago
+            maybeVehicleConfirmed, maybe_history_positions_minus_1 = maybeVehicle.confirmVehicle(self.history_positions[-1])
+            
+            # if vehicle has been confirmed
+            if maybeVehicleConfirmed:
+                # try to confirm this vehicle in current frame
+                maybeVehicleConfirmed2, maybe_positions = maybeVehicle.confirmVehicle(self.positions)
+        
+                # if vehicle has been confirmed again, then this vehicle will be added to the detected vehicle list
+                # and the old unassigned positions get updated
+                if maybeVehicleConfirmed2:
+                    self.vehicles.append(maybeVehicle)
+                    self.history_positions[-1] = maybe_history_positions_minus_1
+                    self.positions = maybe_positions
+            
+            # if vehicle has not been confirmed through these 3 frames, then the old positions remain unchanged
+            if not maybeVehicleConfirmed2:
+                maybe_history_positions_minus_2.append(position_old2)
+        
+        self.history_positions[-2] = maybe_history_positions_minus_2
+
+    def detect(self):
+        self.confirmExistentVehicles()
+        self.detectNewVehicles()
+        self.history_positions.append(self.positions)
+        self.positions = []
 
 # SETTER
-    def setAll(self, boolDetected, fitx, poly_coeff):
-        self.setDetected(boolDetected)
-        self.addRecentXfitted(fitx)
-        self.setCurrentFit(poly_coeff)
+    def addPosition(self, x_center, y_center, height, width):
+        pos = {'x': x_center, 'y': y_center, 'h': height, 'w': width}
+        self.positions.append(position)
 
-    def setDetected(self, boolDetected):
-        self.detected = boolDetected
-    
-#     def setRecentXFit(self, fitx):
-#         self.addRecentXFitted(fitx)
-#         self.addHistoryXFitted(fitx)
-#     
-#     def addRecentXfitted(self, fitx):
-#         self.recent_xfitted.append(fitx)
-#         if len(self.recent_xfitted) > self.n:
-#             self.recent_xfitted.popleft()
-#         
-#        self.bestx = sum(self.recent_xfitted)/float(len(self.recent_xfitted))
+    def addPositions(self, positions):
+        self.positions.extend(positions)
 
-    def addHistoryXfitted(self, fitx):
-        self.xhistory.append(fitx)
-
-    def setCurrentPolyCoeff(self, poly_coeff):
-        self.current_poly_coeff = poly_coeff
-        
-        self.recent_poly_coeff.append(poly_coeff)
-        if len(self.recent_poly_coeff) > self.n:
-            self.recent_poly_coeff.pop()
-#            self.best_poly_coeff = sum(self.recent_poly_coeff) / len(self.recent_poly_coeff)
-       
-            self.best_poly_coeff = sum(self.recent_poly_coeff) / len(self.recent_poly_coeff)
-        
-        self.best_poly_coeff = poly_coeff
-        
-    def setRadiusOfCurvature(self, radiusMeter):
-        self.radius_of_curvature = radiusMeter
-        
-    def setLineBasePos(self, centerDeviationMeter):
-        self.line_base_pos = centerDeviationMeter
-        
 # GETTER
-    def isDetected(self):
-        return self.detected
-    
-    def getBestPolyCoeff(self):
-        return self.best_poly_coeff
-
-    def getRecentPolyCoeff(self):
-        return self.recent_poly_coeff
-
-    def getX(self):
-        return self.x
+    def getVehicleBoundingBoxes(self):
+        bboxes = []
+        
+        for vehicle in self.vehicles:
+            bboxes.append(vehicle.getBoundingBox())
+     
+        return bboxes

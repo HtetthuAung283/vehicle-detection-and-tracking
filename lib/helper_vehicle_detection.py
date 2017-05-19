@@ -12,6 +12,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import LinearSVC
 from scipy.ndimage.measurements import label
+from vehicle import Vehicle
+from position import Position
 
 
 # helper functions
@@ -174,7 +176,15 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
     
     draw_img = np.copy(img)
 
-    result = draw_labeled_bboxes(draw_img, labels)
+    positions = labels2positions(labels)
+    
+    detection.addPositions(positions)
+    detection.detect()
+
+#    result = draw_labeled_bboxes(draw_img, labels)
+
+    result = draw_boxes(draw_img, detection.getVehicleBoundingBoxes(), color=(0, 255, 0), thick=2)
+
     imageBank[4] = result
 
     if format == 'collage4':
@@ -219,6 +229,28 @@ def apply_threshold(heatmap, threshold):
     heatmap[heatmap <= threshold] = 0
     # Return thresholded map
     return heatmap
+
+def labels2positions(labels):
+    '''
+        converts the labels into positions
+    '''
+    
+    positions = []
+    
+    # Iterate through all detected cars
+    for car_number in range(1, labels[1]+1):
+        # Find pixels with each car_number label value
+        nonzero = (labels[0] == car_number).nonzero()
+        # Identify x and y values of those pixels
+        nonzeroy = np.array(nonzero[0])
+        nonzerox = np.array(nonzero[1])
+        # Define a bounding box based on min/max x and y
+        bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
+        
+        myposition = Position( (np.min(nonzerox) + np.max(nonzerox)) / 2, (np.min(nonzeroy) + np.max(nonzeroy)) / 2, np.max(nonzeroy) - np.min(nonzeroy), np.max(nonzerox) - np.min(nonzerox) )
+        positions.append(myposition)
+        
+    return positions
 
 def draw_labeled_bboxes(img, labels):
     font = cv2.FONT_HERSHEY_COMPLEX_SMALL

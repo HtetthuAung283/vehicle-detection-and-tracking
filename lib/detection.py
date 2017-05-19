@@ -38,8 +38,6 @@ class Detection():
             use the history of uinassigned positions to detect a new vehicle
         '''
         
-        print('detect new vehicles. history position length:', len(self.history_positions))
-        
         if len(self.history_positions) < 3:
             return
         
@@ -52,6 +50,9 @@ class Detection():
             maybeVehicleConfirmed_minus_3 = False
             
             # try to confirm this vehicle in 2 frames ago
+            print('detect new vehicles. history positions length:', len(self.history_positions))
+            print('detect new vehicles. history positions:', self.history_positions)
+            print('detect new vehicles. history position[-2] length:', len(self.history_positions[-2]))
             maybeVehicleConfirmed_minus_2, maybe_history_positions_minus_2 = maybeVehicle.confirmVehicle(self.history_positions[-2])
             
             # if vehicle has been confirmed

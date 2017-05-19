@@ -77,7 +77,7 @@ class Detection():
             
             # if vehicle has not been confirmed through these 3 frames, then the old positions remain unchanged
             if not maybeVehicleConfirmed_minus_3:
-                maybe_history_positions_minus_3.append(positions_minus_3)
+                maybe_history_positions_minus_3.append(position_minus_3)
         
         self.history_positions[-3] = maybe_history_positions_minus_3
 

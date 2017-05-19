@@ -18,6 +18,8 @@ class Detection():
         # vehicles, that are detected and traced over n frames with no fail
         self.vehicles = []
 
+        # left upper corner of false positives
+        self.false = []
 
     def confirmExistentVehicles(self):
         
@@ -86,7 +88,15 @@ class Detection():
         self.detectNewVehicles()
         self.history_positions.append(self.positions)
         self.positions = []
+        self.exportLeftDetectionsAsFalsePositives()
 
+    def exportLeftDetectionsAsFalsePositives(self):
+        for position in self.positions:
+            
+            # flag as false positives if in left image half
+            if position.x < 600:
+                self.false.append(position)
+                
 # SETTER
     def addPosition(self, x_center, y_center, height, width):
         pos = {'x': x_center, 'y': y_center, 'h': height, 'w': width}

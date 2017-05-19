@@ -44,6 +44,8 @@ parser.add_argument('--endTime', metavar='FLOAT', type=float, required=False,
                    help='Use this argument to shift the exit point. Eg. --endTime=130 ends the processing pipeline at the 30th second of the second minute after video begin.')
 parser.add_argument('--unroll', action='store_true',
                    help='Use this argument to unroll the resulting video in single frames.')
+parser.add_argument('--collect', action='store_true',
+                   help='Use this argument to collect false positives to improve learning.')
 parser.add_argument('--visLog', metavar='INT', type=int, action='store', default=False,
                    help='for debugging or documentation of the pipeline you can output the image at a certain processing step \
                    1=detections, \
@@ -156,12 +158,29 @@ frameNr = 1
 
 def process_image(img, detection=detection):
     result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], retNr=args.visLog, format=args.format)
+
+    global frameNr
     
     if args.unroll:
-        global frameNr
         writeImage(result, args.outDir, 'frame_'+str(frameNr))
-        frameNr += 1
     
+    if args.collect:
+        posNr = 1
+        for falsePosition in detection.false:
+            x1 = falsePosition.x - falsePosition.w/2
+            y1 = falsePosition.y - falsePosition.h/2
+            x2 = x1 + 64
+            y2 = y1 + 64
+            crop_img = img[y1:y2, x1:x2]
+            
+            writeImage(crop_img, args.outDir, 'falsepositive_'+str(frameNr)+'_'+str(posNr))
+            
+            posNr += 1
+    
+        detection.false = []
+    
+    frameNr += 1
+
     return result
 
 

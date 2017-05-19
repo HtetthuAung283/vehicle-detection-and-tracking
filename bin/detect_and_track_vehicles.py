@@ -155,6 +155,7 @@ dict_classifier = createClassifier(args.mlDir, color_space, spatial_size, hist_b
 
 detection = Detection()
 frameNr = 1
+dirFalsePositives = args.outDir+'/false'
 
 def process_image(img, detection=detection):
     result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], retNr=args.visLog, format=args.format)
@@ -169,7 +170,7 @@ def process_image(img, detection=detection):
         winNr = 1
         for falseImg in detection.falseImg:
             
-            writeImage(falseImg, args.outDir, 'falsepositive_'+str(frameNr)+'_'+str(winNr))
+            writeImage(falseImg, dirFalsePositives, 'falsepositive_'+str(frameNr)+'_'+str(winNr))
             
             winNr += 1
     
@@ -197,6 +198,10 @@ if args.video:
     if not os.path.isdir(args.outDir):
         log('info', 'creating output directory: ' + args.outDir)
         os.mkdir(args.outDir)
+
+    if not os.path.isdir(dirFalsePositives):
+        log('info', 'creating output directory for false positives: ' + dirFalsePositives)
+        os.mkdir(dirFalsePositives)
 
     subclip = None
     if args.startTime and args.endTime:

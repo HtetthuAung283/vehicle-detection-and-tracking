@@ -13,6 +13,9 @@ class Vehicle():
 
         # the past positions of the vehicle
         self.history_positions = []
+        
+        # last confirmation failed
+        self.confirmation = True
 
     def confirmVehicle(self, positions):
         '''
@@ -22,7 +25,7 @@ class Vehicle():
         '''
         anticipatedPosition = self.anticipatePosition()
         
-        confirmation = False
+        newConfirmation = False
         
         distancePosition = {}
         
@@ -38,7 +41,7 @@ class Vehicle():
         if len(distancesList) > 0:
             print('sorted list of distances', distancesList)
             if distancesList[0] < self.radius:
-                confirmation = True
+                newConfirmation = True
                 
                 # put the old position into history
                 self.history_positions.append(self.position)
@@ -48,7 +51,14 @@ class Vehicle():
                 positions.remove(distancePosition[distancesList[0]])
         
         # return the position list
-        return confirmation, positions
+        if self.confirmation and not newConfirmation:
+            self.confirmation = False
+            return True, positions
+        elif not self.confirmation and not newConfirmation:
+            return False, positions
+        elif not self.confirmation and newConfirmation:
+            self.confirmation = True
+            return True, positions
         
     def anticipateMovement(self):
         '''

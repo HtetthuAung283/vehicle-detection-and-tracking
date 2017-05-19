@@ -46,7 +46,8 @@ class Detection():
         # start with all non-assigned positions 2 frames ago
         for position_minus_3 in self.history_positions[-3]:
             maybeVehicle = Vehicle(position_minus_3)
-            
+            print('type of maybeVehicle', type(maybeVehicle))
+            print('type of position_minus_3', type(position_minus_3))
             maybeVehicleConfirmed_minus_3 = False
             
             # try to confirm this vehicle in 2 frames ago

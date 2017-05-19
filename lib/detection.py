@@ -53,6 +53,8 @@ class Detection():
             print('detect new vehicles. history positions length:', len(self.history_positions))
             print('detect new vehicles. history positions:', self.history_positions)
             print('detect new vehicles. history position[-2] length:', len(self.history_positions[-2]))
+            print('detect new vehicles. type history position[-2]:', type(self.history_positions[-2]))
+            print('detect new vehicles. history position[-2]:', self.history_positions[-2])
             maybeVehicleConfirmed_minus_2, maybe_history_positions_minus_2 = maybeVehicle.confirmVehicle(self.history_positions[-2])
             
             # if vehicle has been confirmed

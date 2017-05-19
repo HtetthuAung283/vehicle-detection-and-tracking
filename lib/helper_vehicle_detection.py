@@ -748,7 +748,7 @@ def createClassifier(mlDir, color_space, spatial_size, hist_bins, orient, pix_pe
     pickle.dump( allPreTrainDataSets, open(classifierPkl, "wb") )
 
     # return
-    return clf, X_scaler
+    return allPreTrainDataSets
 
 def getAllFilesFromDirTree(dir):
     '''

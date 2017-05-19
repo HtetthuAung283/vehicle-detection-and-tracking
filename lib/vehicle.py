@@ -59,6 +59,10 @@ class Vehicle():
         elif not self.confirmation and newConfirmation:
             self.confirmation = True
             return True, positions
+        else:
+            return True, positions
+        
+        return True, positions
         
     def anticipateMovement(self):
         '''

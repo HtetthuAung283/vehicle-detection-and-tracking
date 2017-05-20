@@ -66,19 +66,9 @@ def writeImage(item, dir, basename, cmap=None):
     
     plt.clf()
 
-def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
-    # Make a copy of the image
-    imcopy = np.copy(img)
-    # Iterate through the bounding boxes
-    for bbox in bboxes:
-        # Draw a rectangle given bbox coordinates
-        cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
-    # Return the image copy with boxes drawn
-    return imcopy
-
 def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[None, None], subsampling=False, retNr=False, format='normal'):
     
-        # store for the intermediate steps of the processing pipeline
+    # store for the intermediate steps of the processing pipeline
     imageBank = {}
     imageBank[0] = img
 
@@ -100,6 +90,12 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
     
     overlap = 0.75
     
+    ###############################
+    #
+    # STEP 1: GENERATE SLIDING WINDOWS AND PREDICT IF THERE IS A VEHICLE IN IT
+    #
+    ###############################
+
     # calculate every window anew
     if subsampling == False:
         windows_big = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop, xy_window=(110, 110), xy_overlap=(0.75, 0.75))
@@ -128,6 +124,11 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
             crop_img = img[window[0][1]:window[1][1], window[0][0]:window[1][0]]
             detection.falseImg.append( cv2.resize(crop_img, (64, 64) ) )
     
+    ###############################
+    #
+    # STEP 2: SHOW HOT WINDOWS 
+    #
+    ###############################
     tmp_img = np.copy(img)
 #    tmp_img = draw_boxes(tmp_img, windows_med2, color=(255, 0, 0), thick=2)
     tmp_img = draw_boxes(tmp_img, hot_windows, color=(0, 255, 0), thick=2)
@@ -138,6 +139,11 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
     if retNr is 1:
         return tmp_img, detection
 
+    ###############################
+    #
+    # STEP 3: CREATE A HEATMAP 
+    #
+    ###############################
     # create an empty heatmap
     heat = np.zeros_like(img[:,:,0]).astype(np.float)
     
@@ -160,6 +166,11 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
     if retNr is 2:
         return heatmap_as_rgb, detection
 
+    ###############################
+    #
+    # STEP 4: CREATE A THRESHOLDED HEATMAP 
+    #
+    ###############################
     # Apply threshold to help remove false positives
     t_heat = apply_threshold(heat, 1)
 
@@ -180,6 +191,11 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
 
     
     
+    ###############################
+    #
+    # STEP 5: SHOW DETECTED VEHICLES 
+    #
+    ###############################
     draw_img = np.copy(img)
 
     positions = labels2positions(labels)
@@ -257,6 +273,16 @@ def labels2positions(labels):
         positions.append(myposition)
         
     return positions
+
+def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
+    # Make a copy of the image
+    imcopy = np.copy(img)
+    # Iterate through the bounding boxes
+    for bbox in bboxes:
+        # Draw a rectangle given bbox coordinates
+        cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
+    # Return the image copy with boxes drawn
+    return imcopy
 
 def draw_labeled_bboxes(img, labels):
     font = cv2.FONT_HERSHEY_COMPLEX_SMALL

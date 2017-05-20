@@ -28,20 +28,20 @@ from detection import Detection
 # setting etc dir
 etcDir = os.path.dirname(os.path.realpath(__file__))+'/../etc'
 
-version = "0.1"
-date = "2017-05-16"
+version = "0.2"
+date = "2017-05-20"
 
 # Definieren der Kommandozeilenparameter
 parser = argparse.ArgumentParser(description='a tool for detecting lane lines in images and videos',
                                  epilog='author: alexander.vogel@prozesskraft.de | version: ' + version + ' | date: ' + date)
-parser.add_argument('--image', metavar='PATH', type=str, required=False,
-                   help='image from a front facing camera. to detect lane lines')
+# parser.add_argument('--image', metavar='PATH', type=str, required=False,
+#                    help='image from a front facing camera. to detect lane lines')
 parser.add_argument('--video', metavar='PATH', type=str, required=False,
                    help='video from a front facing camera. to detect lane lines')
-parser.add_argument('--startTime', metavar='FLOAT', type=float, required=False,
-                   help='when developing the image pipeline it can be helpful to focus on the difficult parts of an video. Use this argument to shift the entry point. Eg. --startTime=0.25 starts the processing pipeline at the 25th second after video begin.')
-parser.add_argument('--endTime', metavar='FLOAT', type=float, required=False,
-                   help='Use this argument to shift the exit point. Eg. --endTime=130 ends the processing pipeline at the 30th second of the second minute after video begin.')
+parser.add_argument('--startTime', metavar='INT', type=int, required=False,
+                   help='when developing the image pipeline it can be helpful to focus on the difficult parts of an video. Use this argument to shift the entry point. Eg. --startTime=25 starts the processing pipeline at the 25th second after video begin.')
+parser.add_argument('--endTime', metavar='INT', type=int, required=False,
+                   help='Use this argument to shift the exit point. Eg. --endTime=50 ends the processing pipeline at the 50th second of the second minute after video begin.')
 parser.add_argument('--unroll', action='store_true',
                    help='Use this argument to unroll the resulting video in single frames.')
 parser.add_argument('--collect', action='store_true',
@@ -58,7 +58,7 @@ parser.add_argument('--format', metavar='STRING', type=str, action='store', defa
 parser.add_argument('--outDir', metavar='PATH', action='store', default='output_directory_'+str(time()),
                    help='directory for output data. must not exist at call time. default is --outDir=output_directory_<time>')
 parser.add_argument('--mlDir', metavar='PATH', action='store', required=False, default=etcDir + '/ml_train_img',
-                   help='directory for machine learning training images. directory must contain 2 subdirectories "vehicles" and "non-vehicles". default is --calDir=etc/ml_train_img')
+                   help='directory for machine learning training images. directory must contain 2 subdirectories "vehicles" and "non-vehicles". default is --mlDir=etc/ml_train_img')
 
 args = parser.parse_args()
 
@@ -75,16 +75,16 @@ map_int_name = {
 
 errors = 0
 
-# check whether image or video was supplied
-if not args.image and not args.video:
-    log('error', 'you need to provide at least one image or video. try --help for help.')
-    errors += 1
+# # check whether image or video was supplied
+# if not args.image and not args.video:
+#     log('error', 'you need to provide at least one image or video. try --help for help.')
+#     errors += 1
 
-# check if all provided images exist
-if args.image:
-    if not os.path.isfile(args.image):
-        log('error', 'image does not exist:'+ args.image)
-        errors += 1
+# # check if all provided images exist
+# if args.image:
+#     if not os.path.isfile(args.image):
+#         log('error', 'image does not exist:'+ args.image)
+#         errors += 1
 
 # check if all provided videos exist
 if args.video:
@@ -182,14 +182,14 @@ def process_image(img, detection=detection):
 
 
 
-if args.image:
-    
-    # read image
-    img = mpimg.imread(args.image)
-    result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], subsampling=False, retNr=args.visLog, format=args.format)
-    
-    print(map_int_name[args.visLog])
-    writeImage(result, args.outDir, map_int_name[args.visLog], cmap=None)
+# if args.image:
+#     
+#     # read image
+#     img = mpimg.imread(args.image)
+#     result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], subsampling=False, retNr=args.visLog, format=args.format)
+#     
+#     print(map_int_name[args.visLog])
+#     writeImage(result, args.outDir, map_int_name[args.visLog], cmap=None)
 
 if args.video:
     video_output = args.outDir + '/video_out.mp4'

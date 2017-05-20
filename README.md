@@ -39,9 +39,9 @@ The goals / steps of this project are the following:
 | code: tracking class  | lib/position.py 				|
 | training data    | etc/ml_train_img			|
 | input test images     | inp/img/test_images/*		|
-| input test videos     | inp/vid/*					|
+| input project video     | inp/vid/project.mp4					|
 | output test images    | out/img/*					|
-| output test videos    | out/vid/*					|
+| output project video    | out/vid/project_output.mp4				|
 
 
 ### 2. Usage
@@ -124,7 +124,10 @@ To get from the RGB image to a HOG representation, I did this:
 1) Convert the image into a color space that I know produces good HOG-representations. I had good experiences with the color space 'LUV' and 'YCrCb'
 2) Extract one color channel
 3) use the function 'skimage.hog()' to convert this color channel into a hog image
+4) For the HOG calculation, I used 9 orientations, 8 pixels_per_cell, and 2 cells_per_block.
 4) For the project, I convert all 3 channels in their HOG-Representation and concatenate them to the comprehensive feature vector of the image
+
+The code for the HOG Transformation can be found in function 'get_hog_features' in lines 611 through 637 of file lib/helper_vehicle_detection.py. 
 
 This is how the original image and the HOG representation of the Y-Channel (in YCrCb color space) looks like.
 
@@ -141,6 +144,8 @@ To get from the RGB image to the Histogram of Color, I did this:
 3) use the function np.histogram() to convert the color data into a histogram with 32 bins.
 4) For the project, I convert all 3 channels in their 'Histogram of Color'-Representation and concatenate them to the comprehensive feature vector of the image
 
+The code for the Histogram of Color can be found in function 'color_hist' in lines 506 through 514 of file lib/helper_vehicle_detection.py. 
+
 #### 3.4 Features from Spatial Binning of Color
 
 To improve the performance of the classifier, I decided to feed in more data and use 'Spatial Binning' as a source for my feature vector.
@@ -153,9 +158,12 @@ To get from the RGB image to the Spatial Binned Representation, I did this:
 3) flatten the color image with the function np.ravel()
 4) create a histogram of the flattened image and concatenate it to the comprehensive feature vector of the image
 
+The code for the Spatial Binning can be found in function 'bin_spatial' in lines 498 through 502 of file lib/helper_vehicle_detection.py. 
+
 #### 3.5 Parameter and Accuracy
 
-I split the data in 80% training- and 20% test-set. I tried several combinations of parameters. My best accuracy of 99.6% on the test set, I archieved with the following configuration:
+I split the data in 80% training- and 20% test-set. I scaled the features to zero mean and unit variance. I used the StandardScaler() from the sklearn module. 
+For the feature generation, I tried several combinations of parameters. My best accuracy of 99.6% on the test set, I achieved with the following configuration:
 
 ALL color_space: 'YCrCb'
 SPATIAL-BIN spatial size: (32, 32)
@@ -167,7 +175,7 @@ HOG use of channels: 'ALL'
 
 #### 3.6 Save Classifier
 
-For later usage and to not have the classifier created every time the program is called, I saved the classifier in a pickle file
+For later usage I saved the classifier in a pickle file.
 
 ### 4. Detect Vehicles in Video
 
@@ -179,7 +187,10 @@ To detect a vehicle, we only have to look at the parts of the image where a vehi
 2) different search windows sizes (110 x 110), (90 x 90), (64 x 64) and (50 x 50)
 3) overlap of search windows of 75%
 
+The code for determining of Sliding Windows can be found in function 'slide_windows' in lines 420 through 459 of file lib/helper_vehicle_detection.py. 
+
 This is how search windows look like:
+
 (left: 64 x 64 without overlap, right: 64 x 64 with 75% overlap)
 
 ![SearchWindow][image11]    ![SearchWindowOverlap][image12]
@@ -187,6 +198,8 @@ This is how search windows look like:
 #### 4.2 Hot Windows
 
 The search windows for which the classifier sees a vehicle are called hot windows.
+
+The code for determining of Hot Windows can be found in function 'search_window' in lines 463 through 495 of file lib/helper_vehicle_detection.py. 
 
 This is an image with several hot windows 
 
@@ -197,7 +210,10 @@ This is an image with several hot windows
 The areas inside of hot windows are summed up to a heat map of possible vehicle positions.
 Not every hot window is a unique car - usually a vehicle is detected by a bunch of hot windows of different sizes. This leads to hot areas that are connected. To eliminate false positives an area needs at least 2 overlapping detections to be considered as a candidate for a vehicle position. 
 
+The code for generating the heat map can be found in function 'add_heat' in lines 245 through 253 of file lib/helper_vehicle_detection.py. 
+
 This is how a heat map looks like.
+
 (left: hot windows, right: heat map)
 
 ![HotWindows][image13]    ![HeatMap][image14]
@@ -205,6 +221,9 @@ This is how a heat map looks like.
 #### 4.4 Labels
 
 Every isolated hot area is a possible vehicle position. To determine this I used the function xxx on the thresholded Heatmap
+
+The code for generating the labels can be found in lines 175 through 185 of file lib/helper_vehicle_detection.py. 
+
 (left: heat map, right: thresholded areas (labels))
 
 ![HeatMap][image14]    ![Labels][image15]
@@ -213,11 +232,17 @@ Every isolated hot area is a possible vehicle position. To determine this I used
 
 If 3 consecutive frames show a detection within a tolerance of 25 pixels from the anticipated position, then this detection is seen as a valid vehicle position. The anticipated position is calculated from the position of 3 consecutive frames. 
 
+The code for detecting and tracking vehicles in videos can be found in line 204 of file lib/helper_vehicle_detection.py and in the class files lib/detection, lib/vehicle and lib/position.
+
+(left: thresholded areas (labels), right: resulting vehicle detections)
+
 ![Labels][image15]    ![Detection][image16]
 
 #### 4.6 Tracking
 
 Each detected vehicle position is reviewed in every frame. This is similar to the first detection of a vehicle - a position has to be confirmed within a radius of 25 pixels. If a vehicle cannot be confirmed on 2 consecutive frames, the vehicle is removed from the tracking object. 
+
+The code for detecting and tracking vehicles in videos can be found in line 204 of file lib/helper_vehicle_detection.py and in the class files lib/detection, lib/vehicle and lib/position.
 
 #### 4.7 Result of Project Video
 

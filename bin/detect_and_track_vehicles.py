@@ -34,8 +34,8 @@ date = "2017-05-20"
 # Definieren der Kommandozeilenparameter
 parser = argparse.ArgumentParser(description='a tool for detecting lane lines in images and videos',
                                  epilog='author: alexander.vogel@prozesskraft.de | version: ' + version + ' | date: ' + date)
-# parser.add_argument('--image', metavar='PATH', type=str, required=False,
-#                    help='image from a front facing camera. to detect lane lines')
+parser.add_argument('--image', metavar='PATH', type=str, required=False,
+                   help='image from a front facing camera. to detect lane lines')
 parser.add_argument('--video', metavar='PATH', type=str, required=False,
                    help='video from a front facing camera. to detect lane lines')
 parser.add_argument('--startTime', metavar='INT', type=int, required=False,
@@ -75,16 +75,16 @@ map_int_name = {
 
 errors = 0
 
-# # check whether image or video was supplied
-# if not args.image and not args.video:
-#     log('error', 'you need to provide at least one image or video. try --help for help.')
-#     errors += 1
+# check whether image or video was supplied
+if not args.image and not args.video:
+    log('error', 'you need to provide at least one image or video. try --help for help.')
+    errors += 1
 
-# # check if all provided images exist
-# if args.image:
-#     if not os.path.isfile(args.image):
-#         log('error', 'image does not exist:'+ args.image)
-#         errors += 1
+# check if all provided images exist
+if args.image:
+    if not os.path.isfile(args.image):
+        log('error', 'image does not exist:'+ args.image)
+        errors += 1
 
 # check if all provided videos exist
 if args.video:
@@ -158,7 +158,7 @@ frameNr = 1
 dirFalsePositives = args.outDir+'/false'
 
 def process_image(img, detection=detection):
-    result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], retNr=args.visLog, format=args.format)
+    result, detection = detect_vehicles(img, detection, False, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], retNr=args.visLog, format=args.format)
 
     global frameNr
     
@@ -182,14 +182,14 @@ def process_image(img, detection=detection):
 
 
 
-# if args.image:
-#     
-#     # read image
-#     img = mpimg.imread(args.image)
-#     result, detection = detect_vehicles(img, detection, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], subsampling=False, retNr=args.visLog, format=args.format)
-#     
-#     print(map_int_name[args.visLog])
-#     writeImage(result, args.outDir, map_int_name[args.visLog], cmap=None)
+if args.image:
+     
+    # read image
+    img = mpimg.imread(args.image)
+    result, detection = detect_vehicles(img, detection, True, dict_classifier['clf'], dict_classifier['X_scaler'], color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[380, 650], subsampling=False, retNr=args.visLog, format=args.format)
+     
+    print(map_int_name[args.visLog])
+    writeImage(result, args.outDir, map_int_name[args.visLog], cmap=None)
 
 if args.video:
     video_output = args.outDir + '/video_out.mp4'

@@ -66,7 +66,7 @@ def writeImage(item, dir, basename, cmap=None):
     
     plt.clf()
 
-def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[None, None], subsampling=False, retNr=False, format='normal'):
+def detect_vehicles(img, detection, singleImage, clf, X_scaler, color_space, spatial_size, hist_bins, orient, pix_per_cell, cell_per_block, hog_channel, spatial_feat, hist_feat, hog_feat, x_start_stop=[None, None], y_start_stop=[None, None], subsampling=False, retNr=False, format='normal'):
     
     # store for the intermediate steps of the processing pipeline
     imageBank = {}
@@ -203,9 +203,15 @@ def detect_vehicles(img, detection, clf, X_scaler, color_space, spatial_size, hi
     detection.addPositions(positions)
     detection.detect()
 
-#    result = draw_labeled_bboxes(draw_img, labels)
+    result = None
 
-    result = draw_boxes(draw_img, detection.getVehicleBoundingBoxes(), color=(0, 255, 0), thick=2)
+    # if it's a single image, then take the labels as the detections
+    if(singleImage):
+        result = draw_labeled_bboxes(draw_img, labels)
+
+    # if it's a video, make it more sophisticated
+    else:
+        result = draw_boxes(draw_img, detection.getVehicleBoundingBoxes(), color=(0, 255, 0), thick=2)
 
     imageBank[4] = result
 

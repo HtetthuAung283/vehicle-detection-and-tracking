@@ -18,7 +18,7 @@ The goals / steps of this project are the following:
 [image6]: ./readme_media/non-car_2.png  "Training Sample Non-Car"
 [image7]: ./readme_media/non-car_3.png  "Training Sample Non-Car"
 [image8]: ./readme_media/non-car_4.png  "Training Sample Non-Car"
-[image9]: ./readme_media/small30/test1.png  "test image"
+[image9]: ./readme_media/small30/test1.jpg  "test image"
 [image10]: ./readme_media/small30/test1_hog.png  "test image hog"
 [image11]: ./readme_media/small30/search_window_00.png  "Search Window"
 [image12]: ./readme_media/small30/search_window_75.png  "Search Window Overlap 75"
@@ -213,7 +213,7 @@ Every isolated hot area is a possible vehicle position. To determine this I used
 
 If 3 consecutive frames show a detection within a tolerance of 25 pixels from the anticipated position, then this detection is seen as a valid vehicle position. The anticipated position is calculated from the position of 3 consecutive frames. 
 
-![Detection][image16]
+![Labels][image15]    ![Detection][image16]
 
 #### 4.6 Tracking
 

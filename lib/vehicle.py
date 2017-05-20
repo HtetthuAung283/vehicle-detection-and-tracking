@@ -48,6 +48,14 @@ class Vehicle():
                 
                 # renew position
                 self.position = distancePosition[distancesList[0]]
+                
+                # smooth position with anticipated position
+                self.position.x = (self.position.x + anticipatedPosition.x ) / 2
+                self.position.y = (self.position.y + anticipatedPosition.y ) / 2
+                self.position.h = (self.position.h + anticipatedPosition.h ) / 2
+                self.position.w = (self.position.w + anticipatedPosition.w ) / 2
+                
+                # remove confirmed detection from the list of un assigned detections
                 positions.remove(distancePosition[distancesList[0]])
         
         # return the position list
@@ -92,6 +100,10 @@ class Vehicle():
         nextPosition = copy.deepcopy(self.position)
         nextPosition.x += movement[0]
         nextPosition.y += movement[1]
+        
+        if len(self.history_positions) > 1:
+            nextPosition.h = (self.history_positions[-2].h + self.history_positions[-1].h + self.position.h) / 3
+            nextPosition.w = (self.history_positions[-2].w + self.history_positions[-1].w + self.position.w) / 3
     
         return nextPosition
 
